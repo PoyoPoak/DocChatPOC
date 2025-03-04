@@ -6,6 +6,7 @@ import random
 import re
 import os
 
+
 config = {
     "start_url": "https://www.opendental.com/site/apispecification.html",
     "max_depth": 2,
@@ -14,15 +15,12 @@ config = {
     "output_dir": "./DocumentProcessing/api"
 }
 
+
 def clean_and_save(url, content, output_dir):
     soup = BeautifulSoup(content, "html.parser")
 
-    # Remove script and style elements
-    for tag in soup(["script", "style", "noscript"]):
-        tag.decompose()
-
-    # Remove navigation elements like nav and aside
-    for tag in soup.find_all(["nav", "aside"]):
+    # Remove unwanted elements: script, style, noscript, nav, and aside
+    for tag in soup.find_all(["script", "style", "noscript", "nav", "aside"]):
         tag.decompose()
 
     # Remove table-of-contents cell or div if present in subpages
@@ -41,10 +39,8 @@ def clean_and_save(url, content, output_dir):
     for link_text in ["Open Dental Home", "Search"]:
         link = soup.find('a', string=lambda x: x and x.strip() == link_text)
         if link:
-            # Remove the link and any separating characters around it
             link_parent = link.parent
             link.decompose()
-            # If the parent is now empty or just punctuation, remove it as well
             if link_parent and not link_parent.get_text(strip=True):
                 link_parent.decompose()
                 
@@ -76,56 +72,40 @@ def clean_and_save(url, content, output_dir):
     for line in lines:
         if not line:
             continue 
-        
         if line in ("Open Dental Home", "Search"):
             continue
         if re.match(r"Manual v\d+\.\d", line):
             continue
-        
         cleaned_lines.append(line)
         
-    # Join lines, ensuring readable spacing
+    # Join lines back together and collapse
     cleaned_text = "\n".join(cleaned_lines)
-    
-    # Collapse multiple blank lines to one
     cleaned_text = re.sub(r"\n{3,}", "\n\n", cleaned_text).strip()
 
     # Save the cleaned text to a file
-    page_name = url.split("/")[-1].split(".")[0]
-    file_name = f"{page_name}"
+    file_name = url.split("/")[-1].split(".")[0]
+    page_name = cleaned_text.split("\n")[0]
     output_path = os.path.join(output_dir, file_name)
     
     # Save the cleaned text to a file, create if it does not exist
     with open(f"{output_path}", "w", encoding="utf-8") as f:
         f.write(cleaned_text)
         
-    return file_name
+    return file_name, page_name
 
-# def save_html(url, html_content, output_dir):
-#     # Create the output directory if it does not exist
-#     if not os.path.exists(output_dir):
-#         os.makedirs(output_dir)
-    
-#     # Extract the page name from the URL
-#     page_name = url.split("/")[-1].split(".")[0]
-    
-#     # Save the HTML content to a text file
-#     with open(f"{output_dir}/{page_name}.html", "w") as f:
-#         f.write(html_content)
 
 def save_csv(data, output_dir):
-    # Create the output directory if it does not exist
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     
-    # Save the data to a CSV file
     with open(f"{output_dir}/data.csv", "w", encoding="utf-8") as f:
         for row in data:
             f.write(",".join(row) + "\n")
 
+
 def crawl(start_url, max_depth, blacklist=None, whitelist=None, output_dir="."):
     file_id = 0
-    link_table = []
+    file_page_path_url_table = []
     
     if blacklist is None:
         blacklist = []
@@ -212,16 +192,14 @@ def crawl(start_url, max_depth, blacklist=None, whitelist=None, output_dir="."):
             # Save the page content to a file
             html_content = response.text
             
-            # Save the HTML content to a file
-            # save_html(current_url, html_content, output_dir)
-            file_name = clean_and_save(current_url, html_content, output_dir)
-            link_table.append((file_name, current_url))
+            # Save 
+            file_name, page_name = clean_and_save(current_url, html_content, output_dir)
+            path = f"{output_dir}/{file_name}"
+            file_page_path_url_table.append([file_name, page_name, path, current_url])
             file_id += 1
             
             # Parse and enqueue links
             soup = BeautifulSoup(html_content, "html.parser")
-            
-            # Find all links on the page and enqueue them
             for a in soup.find_all('a', href=True):
                 link = a['href']
                 full_link = link if urlparse(link).scheme else urljoin(current_url, link)
@@ -233,11 +211,9 @@ def crawl(start_url, max_depth, blacklist=None, whitelist=None, output_dir="."):
             # Sleep after each page to avoid hammering the server
             time.sleep(random.uniform(0.5,1))
 
-    # Start the crawl
     crawl_bfs(start_url)
-    
-    # Save the link table to a CSV file and name it as the folder name
-    save_csv(link_table, output_dir)
+    save_csv(file_page_path_url_table, output_dir)
+
 
 if __name__ == "__main__":
     crawl(config["start_url"], config["max_depth"], config["blacklist"], config["whitelist"], config["output_dir"])
