@@ -11,7 +11,7 @@ config = {
     "max_depth": 2,
     "blacklist": [],
     "whitelist": ["https://www.opendental.com/site/api"],
-    "output_dir": "./pages" ,
+    "output_dir": "./DocumentProcessing/api"
 }
 
 def clean_and_save(url, content, output_dir):
@@ -95,23 +95,38 @@ def clean_and_save(url, content, output_dir):
     file_name = f"{page_name}"
     output_path = os.path.join(output_dir, file_name)
     
-    with open(output_path, "w", encoding="utf-8") as f:
+    # Save the cleaned text to a file, create if it does not exist
+    with open(f"{output_path}", "w", encoding="utf-8") as f:
         f.write(cleaned_text)
+        
+    return file_name
 
-def save_html(url, html_content, output_dir):
+# def save_html(url, html_content, output_dir):
+#     # Create the output directory if it does not exist
+#     if not os.path.exists(output_dir):
+#         os.makedirs(output_dir)
+    
+#     # Extract the page name from the URL
+#     page_name = url.split("/")[-1].split(".")[0]
+    
+#     # Save the HTML content to a text file
+#     with open(f"{output_dir}/{page_name}.html", "w") as f:
+#         f.write(html_content)
+
+def save_csv(data, output_dir):
     # Create the output directory if it does not exist
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     
-    # Extract the page name from the URL
-    page_name = url.split("/")[-1].split(".")[0]
-    
-    # Save the HTML content to a text file
-    with open(f"{output_dir}/{page_name}.html", "w") as f:
-        f.write(html_content)
+    # Save the data to a CSV file
+    with open(f"{output_dir}/data.csv", "w", encoding="utf-8") as f:
+        for row in data:
+            f.write(",".join(row) + "\n")
 
-def crawl(start_url, max_depth=10, blacklist=None, whitelist=None, output_dir="./pages"):
+def crawl(start_url, max_depth, blacklist=None, whitelist=None, output_dir="."):
     file_id = 0
+    link_table = []
+    
     if blacklist is None:
         blacklist = []
     if whitelist is None:
@@ -162,13 +177,12 @@ def crawl(start_url, max_depth=10, blacklist=None, whitelist=None, output_dir=".
     # Ensure base_url ends with '/' for proper urljoin with relative links
     if not base_url.endswith("/"):
         base_url = base_url.rsplit("/", 1)[0] + "/"
-    base_path = os.path.dirname(parsed_start.path)  # e.g., "/manual243"
 
     def crawl_bfs(url):
         nonlocal file_id
         
-        # BFS using a queue
-        queue.append((url, 0)) # (url, depth)
+        # Enqueue the URL with depth 0
+        queue.append((url, 0))
         
         while queue:
             current_url, depth = queue.pop(0)
@@ -200,16 +214,20 @@ def crawl(start_url, max_depth=10, blacklist=None, whitelist=None, output_dir=".
             
             # Save the HTML content to a file
             # save_html(current_url, html_content, output_dir)
-            clean_and_save(current_url, html_content, output_dir)
+            file_name = clean_and_save(current_url, html_content, output_dir)
+            link_table.append((file_name, current_url))
             file_id += 1
             
             # Parse and enqueue links
             soup = BeautifulSoup(html_content, "html.parser")
             
+            # Find all links on the page and enqueue them
             for a in soup.find_all('a', href=True):
                 link = a['href']
                 full_link = link if urlparse(link).scheme else urljoin(current_url, link)
-                if is_valid_link(full_link):
+                
+                # Check if valid link and is not already in the queue
+                if (is_valid_link(full_link)) and (full_link not in (item[0] for item in queue)) and (full_link.startswith(base_url)):
                     queue.append((full_link, depth + 1))
                     
             # Sleep after each page to avoid hammering the server
@@ -217,6 +235,9 @@ def crawl(start_url, max_depth=10, blacklist=None, whitelist=None, output_dir=".
 
     # Start the crawl
     crawl_bfs(start_url)
+    
+    # Save the link table to a CSV file and name it as the folder name
+    save_csv(link_table, output_dir)
 
 if __name__ == "__main__":
     crawl(config["start_url"], config["max_depth"], config["blacklist"], config["whitelist"], config["output_dir"])
