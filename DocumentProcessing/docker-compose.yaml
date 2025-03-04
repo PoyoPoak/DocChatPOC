@@ -1,0 +1,18 @@
+services:
+  mysql-server:
+    build: .
+    container_name: mysql-server
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_RANDOM_ROOT_PASSWORD: "yes"
+      MYSQL_DATABASE: documents
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: password
+    networks:
+      - mysql-net
+
+networks:
+  mysql-net:
+    name: mysql-net
+    driver: bridge
