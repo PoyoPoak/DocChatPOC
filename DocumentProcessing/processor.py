@@ -18,21 +18,30 @@ queries = [
     # "How do I do a get request for a patient's allergies",
     # "How to update patient's insurance information",
     # "Update patient notes",
-    "deleting a patient's insurance information",
+    # "deleting a patient's insurance information",
+    "Update patient insurance information"
 ]
 
-
-# Walk through the data directory and read all the documents
-def read_docs(DATA_DIR):
+# Parse paths from the CSV file and read the documents to form a mapping of document indices to document text
+def read_docs(csv_data):
     document_list = []
-    for root, _, files in os.walk(DATA_DIR):
-        for file in files:
-            with open(os.path.join(root, file), 'r', encoding='utf-8') as f:
-                document_list.append(f.read())
+    for row in csv_data:
+        file_path = row[2]
+        csv_data_idx = csv_data.index(row)
+        document_content = ""
+        # Read the document text from the file
+        with open(f"{file_path}", "r", encoding="utf-8") as f:
+            document_content = f.read()
+    
+        # Append tuple of document index and document text to the document list
+        idx_txt = (csv_data_idx, document_content)
+        document_list.append(idx_txt)
+            
     return document_list
 
-
-def process_text(text):
+def process_text(idx_txt):
+    text = idx_txt[1]
+    
     stop_words = set(stopwords.words('english'))
     stemmer = PorterStemmer()
     
@@ -47,7 +56,7 @@ def process_text(text):
 
 
 def model_setup(processed_documents):
-    model = Word2Vec(sentences=processed_documents, vector_size=300, window=6, min_count=0, workers=12)
+    model = Word2Vec(sentences=processed_documents, vector_size=500, window=6, min_count=0, workers=12)
     model.train(processed_documents, total_examples=model.corpus_count, total_words=model.corpus_total_words, epochs=100)
     
     model.save("./word2vec.model")
@@ -108,7 +117,9 @@ def normalize(vec):
     return vec / norm if norm != 0 else vec
 
 
-def run_queries(document_list, queries, query_vecs, index):
+def run_queries(idx_txt, queries, query_vecs, index):
+    document_list = [idx_txt[idx] for idx in range(len(idx_txt))]
+    
     for q_idx, query_vec in enumerate(query_vecs):
         # Compute cosine similarities between the query vector and all document vectors
         sims = index[query_vec]
@@ -122,11 +133,13 @@ def run_queries(document_list, queries, query_vecs, index):
             print("{:.4f}: \"{}\"".format(sims[idx], document_list[idx]))
         print("\n")
 
+
 # Read csv file of a table with columns: file_name, page_name, path, url
 def read_csv(file_path="./DocumentProcessing/api/data.csv"):
     with open(file_path, "r", encoding="utf-8") as f:
         data = [line.strip().split(",") for line in f]
     return data
+
 
 # Save csv file of a table with columns: file_name, page_name, path, url, vector
 def save_csv(data, output_dir):
@@ -137,21 +150,21 @@ def save_csv(data, output_dir):
         for row in data:
             f.write(",".join(map(str, row)) + "\n")
 
+
 # Append column of vectors to csv file as a json
-def add_vectors_to_csv(csv_data, doc_vecs):
-    # Convert doc_vecs to large string
+def add_vectors_to_csv(csv_data, idx_txt, doc_vecs):
+    # Convert doc_vecs to large string and replace commas with semicolons
     vec_strs = [json.dumps(vec.tolist()) for vec in doc_vecs]
-    
-    # Replace commas in the string with semicolons
     vec_strs = [vec.replace(",", ";") for vec in vec_strs]
     
-    # Add the vector strings to the csv data to their respective rows
-    for i, row in enumerate(csv_data):
-        row.append(vec_strs[i])
+    # Find the correct row in the csv_data and append the vector string
+    for idx, vec_str in zip(idx_txt, vec_strs):
+        csv_data[idx].append(vec_str)
     
 
 
-document_list           = read_docs(DATA_DIR)
+csv_data                = read_csv()
+document_list           = read_docs(csv_data)
 processed_queries       = [process_text(query) for query in queries]
 processed_documents     = [process_text(document) for document in document_list]
 model                   = model_setup(processed_documents)
@@ -159,8 +172,8 @@ doc_vecs                = vectorize_documents(processed_documents, model)
 query_vecs              = vectorize_queries(processed_queries, model)
 doc_vecs                = np.array([normalize(vec) for vec in doc_vecs])
 index                   = MatrixSimilarity(doc_vecs, num_features=model.vector_size)
-csv_data                = read_csv()
 
-add_vectors_to_csv(csv_data, doc_vecs)
+
+add_vectors_to_csv(csv_data, [idx for idx, _ in document_list], doc_vecs)
 save_csv(csv_data, DATA_DIR)
 # run_queries(document_list, queries, query_vecs, index)

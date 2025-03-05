@@ -1,6 +1,10 @@
 import sys
 import numpy as np
 import mysql.connector
+import re
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
+from nltk.stem.porter import PorterStemmer
 from gensim.models import Word2Vec
 from gensim.similarities import MatrixSimilarity
 
@@ -10,13 +14,23 @@ from gensim.similarities import MatrixSimilarity
 
 # query_text = sys.argv[1]
 
-query_text = "Update patient insurance information"
+query_text = "allergies"
+
+# Preprocess the query text
+stop_words = set(stopwords.words('english'))
+stemmer = PorterStemmer()
+tokens = word_tokenize(query_text)
+lowered = [t.lower() for t in tokens]
+stopped = [t for t in lowered if t not in stop_words]
+stemmed = [stemmer.stem(t) for t in stopped]
+nummed = ['num' if t.isdigit() else t for t in stemmed]
+query_text = [t for t in nummed if re.match(r'[^\W\d]*$', t)]
 
 model = Word2Vec.load("./word2vec.model")
 
 # Vectorize the query using the words in the query (split on whitespace)
 word_vecs = []
-for word in query_text.split():
+for word in query_text:
     try:
         vec = model.wv[word]
         word_vecs.append(vec)
