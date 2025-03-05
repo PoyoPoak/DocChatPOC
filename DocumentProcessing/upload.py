@@ -28,7 +28,7 @@ def main():
     create_table(cursor)
     
     # Open and read the CSV file
-    with open('./DocumentProcessing/api/full_data.csv', 'r', newline='', encoding='utf-8') as csvfile:
+    with open('./api/full_data.csv', 'r', newline='', encoding='utf-8') as csvfile:
         csvreader = csv.reader(csvfile)
         # Optionally skip the header row if your CSV file has one:
         # next(csvreader, None)

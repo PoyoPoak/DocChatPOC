@@ -12,7 +12,7 @@ config = {
     "max_depth": 2,
     "blacklist": [],
     "whitelist": ["https://www.opendental.com/site/api"],
-    "output_dir": "./DocumentProcessing/api"
+    "output_dir": "./api"
 }
 
 

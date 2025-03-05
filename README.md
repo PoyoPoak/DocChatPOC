@@ -7,6 +7,10 @@ docker run -d --name mysql-server --network mysql-net -p "3306:3306" -e "MYSQL_R
 docker run --rm -it --network mysql-net mysql mysql -h mysql-server -u admin -p
 USE documents;
 
+docker pull mysql
 docker-compose up -d
 docker run --rm -it --network mysql-net mysql mysql -h mysql-server -u admin -p
 USE documents;
+
+python -m venv "./.env"
+pip install -r requirements.txt

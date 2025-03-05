@@ -11,7 +11,8 @@ namespace ChatPOC
             {
                 var bot = new ChatPOC.Chatbot.Chatbot();
                 bot.Run();
-            } catch (Exception ex)
+            } 
+            catch (Exception ex)
             {
                 Console.WriteLine($"FATAL ERROR: {ex.Message}");
             }

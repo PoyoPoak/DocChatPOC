@@ -11,7 +11,7 @@ from nltk.stem.porter import PorterStemmer
 
 # nltk.download()
 
-DATA_DIR = './DocumentProcessing/api'
+DATA_DIR = './api'
 
 queries = [
     # "patient allergies",
@@ -135,7 +135,7 @@ def run_queries(idx_txt, queries, query_vecs, index):
 
 
 # Read csv file of a table with columns: file_name, page_name, path, url
-def read_csv(file_path="./DocumentProcessing/api/data.csv"):
+def read_csv(file_path="./api/data.csv"):
     with open(file_path, "r", encoding="utf-8") as f:
         data = [line.strip().split(",") for line in f]
     return data

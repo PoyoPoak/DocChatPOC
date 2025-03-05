@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using OpenAI.Chat;
 
 namespace ChatPOC.Chatbot
@@ -32,7 +34,10 @@ namespace ChatPOC.Chatbot
 
             while (true)
             {
-                Console.Write("User: ");
+                Console.ForegroundColor = ConsoleColor.Blue;
+                Console.Write("User: \n");
+                Console.ResetColor();
+
                 string userInput = Console.ReadLine();
 
                 if (string.IsNullOrWhiteSpace(userInput))
@@ -46,15 +51,39 @@ namespace ChatPOC.Chatbot
 
                 if (completion != null && completion.Content.Count > 0)
                 {
-                    // Retrieve and display the assistant's reply.
                     string assistantReply = completion.Content[0].Text;
-                    Console.WriteLine("Assistant: " + assistantReply);
+
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine("Assistant:");
+                    Console.ResetColor();
+
+                    // Print formatted output with color
+                    PrintFormatted(assistantReply);
 
                     // Append the assistant's reply to the conversation history.
                     _messages.Add(new AssistantChatMessage(assistantReply));
+                }
+            }
+        }
+
+        private void PrintFormatted(string text)
+        {
+            // Split the text on triple backticks and remove the newline
+            string[] segments = Regex.Split(text, @"```").Select((x, i) => i % 2 == 0 ? x.Replace("\n", "") : x).ToArray();
+
+            ConsoleColor defaultColor = Console.ForegroundColor;
+
+            for (int i = 0; i < segments.Length; i++)
+            {
+                if (i % 2 == 1)
+                {
+                    // Color the code 
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine(segments[i]);
+                    Console.ForegroundColor = defaultColor;
                 } else
                 {
-                    Console.WriteLine("Error: Unable to get a response from the assistant.");
+                    Console.WriteLine(segments[i]);
                 }
             }
         }

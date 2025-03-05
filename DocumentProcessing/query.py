@@ -8,13 +8,13 @@ from nltk.stem.porter import PorterStemmer
 from gensim.models import Word2Vec
 from gensim.similarities import MatrixSimilarity
 
-# if len(sys.argv) < 2:
-#     print("Usage: python query.py \"<query>\"")
-#     sys.exit(1)
+if len(sys.argv) < 2:
+    print("Usage: python query.py \"<query>\"")
+    sys.exit(1)
 
-# query_text = sys.argv[1]
+query_text = sys.argv[1]
 
-query_text = "allergies"
+# query_text = "allergies"
 
 # Preprocess the query text
 stop_words = set(stopwords.words('english'))
@@ -22,7 +22,7 @@ stemmer = PorterStemmer()
 tokens = word_tokenize(query_text)
 lowered = [t.lower() for t in tokens]
 stopped = [t for t in lowered if t not in stop_words]
-stemmed = [stemmer.stem(t) for t in stopped]
+stemmed = [stemmer.stem(t) for t in stopped]    
 nummed = ['num' if t.isdigit() else t for t in stemmed]
 query_text = [t for t in nummed if re.match(r'[^\W\d]*$', t)]
 
