@@ -50,7 +50,7 @@ def model_setup(processed_documents):
     model = Word2Vec(sentences=processed_documents, vector_size=300, window=6, min_count=0, workers=12)
     model.train(processed_documents, total_examples=model.corpus_count, total_words=model.corpus_total_words, epochs=100)
     
-    # model.save("./DocumentProcessing/word2vec.model")
+    model.save("./word2vec.model")
     # model = Word2Vec.load("word2vec.model")
     
     return model
@@ -137,7 +137,7 @@ def save_csv(data, output_dir):
         for row in data:
             f.write(",".join(map(str, row)) + "\n")
 
-# Append column of vectors to csv file
+# Append column of vectors to csv file as a json
 def add_vectors_to_csv(csv_data, doc_vecs):
     # Convert doc_vecs to large string
     vec_strs = [json.dumps(vec.tolist()) for vec in doc_vecs]
@@ -148,7 +148,7 @@ def add_vectors_to_csv(csv_data, doc_vecs):
     # Add the vector strings to the csv data to their respective rows
     for i, row in enumerate(csv_data):
         row.append(vec_strs[i])
-        
+    
 
 
 document_list           = read_docs(DATA_DIR)

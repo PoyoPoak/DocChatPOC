@@ -84,13 +84,13 @@ def clean_and_save(url, content, output_dir):
 
     # Save the cleaned text to a file
     file_name = url.split("/")[-1].split(".")[0]
-    page_name = cleaned_text.split("\n")[0]
+    page_name = cleaned_text.split("\n")[0].replace(",", "")
     output_path = os.path.join(output_dir, file_name)
     
     # Save the cleaned text to a file, create if it does not exist
     with open(f"{output_path}", "w", encoding="utf-8") as f:
         f.write(cleaned_text)
-        
+    
     return file_name, page_name
 
 
