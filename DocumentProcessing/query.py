@@ -93,7 +93,7 @@ similarity_scores = index[query_vec]
 top3_ids = np.array(similarity_scores).argsort()[-3:][::-1]
 top3_paths = [paths[idx] for idx in top3_ids]
 
-print("Top 3 matching document paths:")
+# print("Top 3 matching document paths:")
 for path in top3_paths:
     print(path)
 
