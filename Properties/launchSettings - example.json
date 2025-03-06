@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "DocChat": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "MODEL_PATH": "/word2vec.model",
+        "DOWNLOADS_PATH": "",
+        "WORKING_DIR": "",
+        "OPENAI_TOKEN":""
+      }
+    }
+  }
+}
