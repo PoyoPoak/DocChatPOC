@@ -1,6 +1,15 @@
 # DocChat
 
-DocChat is a proof-of-concept (POC) Windows console application designed to demonstrate a Retrieval-Augmented Generation (RAG) chatbot solution. It aims to streamline development workflows by improving API documentation accessibility and providing code generation aligned with the documentation.
+DocChat is a proof-of-concept (POC) Windows console application designed to demonstrate a Retrieval-Augmented Generation (RAG) chatbot solution. It aims to streamline development workflows by improving API documentation accessibility and providing code generation aligned with the documentation. This project was developed over 10-12 hours so far.
+
+## Known Bugs
+- **NLTK Download Delays:** The initial download of NLTK data can be slow. Consider running the downloader in a separate session if needed.
+- **Model Training Speed:** Training the word2vec model may take some time on slower machines. Lowering epochs may help, but could decrease accuracy.
+- **Data Processing Errors:** If input files are missing or malformed, errors may occur during vectorization. Verify that the data gathering step has successfully stored all required documents.
+- **query.py Script Packages:** Much of the python should be ran in the environment where the needed packages are available. The bot currently calls query outside of the env so the user must have all the packages installed locally for it to work.
+- **Context Window Limitations:** With the method in which documents are processed, there is often extraneous text left over that is often irrelevant. With larger documents, multiple could potentially go over OpenAI's API token limitations.
+- **Inaccurate References:** When checking out commits, model might not update and so retrieved results may be irrelevant and LLM can hallucinate answers.
+- **Setup Issues:** There are C# packages that will be required, the setup instructions are not complete and may be missing steps.
 
 ## Overview & Vision
 
@@ -136,12 +145,6 @@ Once your Python environment is setup, we're going to want to run `setup.py` to 
 ```bash
    python ./setup.py
    ```
-
-## Known Bugs
-- **NLTK Download Delays:** The initial download of NLTK data can be slow. Consider running the downloader in a separate session if needed.
-- **Model Training Speed:** Training the word2vec model may take some time on slower machines. Lowering epochs may help, but could decrease accuracy.
-- **Data Processing Errors:** If input files are missing or malformed, errors may occur during vectorization. Verify that the data gathering step has successfully stored all required documents.
-- **query.py Script Packages:** Much of the python should be ran in the environment where the needed packages are available. The bot currently calls query outside of the env so the user must have all the packages installed locally for it to work.
 
 ## Remaining POC Work
 For the purpose of skill demonstration, this POC is not of an optimal implementation. There is much that can be replaced, condensed, and streamlined. Whether that is as-is, or if it is ever to be a cloud hosted service and interactable via a web app.
