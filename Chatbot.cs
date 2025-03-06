@@ -30,20 +30,21 @@ namespace ChatPOC.Chatbot
                 }
                 """u8.ToArray())
         );
+
         public Chatbot()
         {
             if (string.IsNullOrEmpty(_apiKey))
             {
                 throw new InvalidOperationException("Error: Missing OPENAI_TOKEN environment variable.");
             }
-
-            // Initialize the chat client using the gpt-4o model.
-            _client = new ChatClient(model: "gpt-4o", apiKey: _apiKey);
+            
+            string openaiModel = Environment.GetEnvironmentVariable("OPENAI_MODEL");
+            _client = new ChatClient(model: openaiModel, apiKey: _apiKey);
 
             // Start the conversation with a system prompt.
             _messages = new List<ChatMessage>
             {
-                new SystemChatMessage("You are a coding assistant to a developer at Open Dental. You will answer questions the developer may have about the API. Only answer with information based on the documentation you have access to. Your responses will be output in a console so be sure to format your responses for easy reading. Your responses shouldn't be long paragraphs. Keep it conscise and technical. For any bullet points or list, add a newline character before it. The console does not support markdown.")
+                new SystemChatMessage("You are a coding assistant to a developer at Open Dental. You will answer questions the developer may have about the API. Only answer with information based on the documentation you have access to. Your responses will be output in a console so be sure to format your responses for easy reading. Your responses shouldn't be long paragraphs. Keep it conscise and technical. Show code when you can from referenced documents.")
             };
         }
 
@@ -92,7 +93,6 @@ namespace ChatPOC.Chatbot
                             Console.ResetColor();
 
                             // Reply
-                            //ListNewLine(assistantReply);
                             PrintFormatted(assistantReply);
 
                             break;
@@ -142,18 +142,6 @@ namespace ChatPOC.Chatbot
                 } while (requiresAction);
             }
         }
-        //private static string ListNewLine(string input)
-        //{
-        //    if (string.IsNullOrEmpty(input))
-        //        return input;
-
-        //    // This pattern looks for any character that is not a newline immediately
-        //    // followed by optional whitespace and a list marker (bullet: -, *, + or numbered list: digit+.)
-        //    string pattern = @"([^\n])(\s*(?:[-*+]|(?:\d+\.))\s+)";
-
-        //    // Replace with the first group, then a newline, then the second group.
-        //    return Regex.Replace(input, pattern, "$1\n$2");
-        //}
 
         private void PrintFormatted(string text)
         {
@@ -177,36 +165,39 @@ namespace ChatPOC.Chatbot
             }
         }
 
-        //private string ExtractQuery(string userInput)
-        //{
-        //    // Send query through chatbot again as a reasoning agent to extract technical queries
-        //    ChatClient extractor = new ChatClient(model: "gpt-4o", apiKey: _apiKey);
-        //    List<ChatMessage> messages = new List<ChatMessage>
-        //    {
-        //        new SystemChatMessage("You are a reasoning agent that will extract technical queries from the user input. Only output a single query. This query will be used to query an information retrieval system. Keep it condensed and accurate to the input. For example if the user asks: How do I make an API call to get all the patient's benefits from their insurance plan? A proper extracted query would be: get patient benefits from insurance"),
-        //        new UserChatMessage(userInput)
-        //    };
+        private string ExtractQuery(string userInput)
+        {
+            // Send query through chatbot again as a reasoning agent to extract technical queries
+            string openaiModel = Environment.GetEnvironmentVariable("OPENAI_MODEL");
+            ChatClient extractor = new ChatClient(model: openaiModel, apiKey: _apiKey);
+            List<ChatMessage> messages = new List<ChatMessage>
+            {
+                new SystemChatMessage("You are a reasoning agent that will extract technical queries from the user input. Only output a single query. This query will be used to query an information retrieval system. Keep it condensed and accurate to the input. For example if the user asks: How do I make an API call to get all the patient's benefits from their insurance plan? A proper extracted query would be: get patient benefits from insurance. Append the name of the documentation pages you referenced at the bottom of a response when you get context."),
+                new UserChatMessage(userInput)
+            };
 
-        //    ChatCompletion extractedQuery = extractor.CompleteChat(messages);
-        //    string query = extractedQuery.Content[0].Text.Trim();
+            ChatCompletion extractedQuery = extractor.CompleteChat(messages);
+            string query = extractedQuery.Content[0].Text.Trim();
 
-        //    return query;
-        //}
+            return query;
+        }
 
         private List<string> RunQuery(string query)
         {
             string exeDirectory = AppContext.BaseDirectory;
-            string workingDirectory = Path.GetFullPath(Path.Combine(exeDirectory, "..", "..", "..", "DocumentProcessing"));
+            string workingDirectory = Environment.GetEnvironmentVariable("WORKING_DIR");
 
             if (!Directory.Exists(workingDirectory))
             {
                 Console.WriteLine("Working directory does not exist: " + workingDirectory);
             }
 
+            //Console.WriteLine(workingDirectory);
+
             ProcessStartInfo start = new ProcessStartInfo
             {
                 FileName = "python",
-                Arguments = $"query.py \"{query}\"",
+                Arguments = $"./query.py \"{query}\"",
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -241,28 +232,17 @@ namespace ChatPOC.Chatbot
         {
             List<string> filesContents = new List<string>();
 
-            string projectRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", ".."));
-
-            foreach (string originalPath in paths)
+            foreach (string path in paths)
             {
                 // Assume the returned path is relative if it isn't rooted.
-                string filePath = originalPath;
 
-                if (!Path.IsPathRooted(filePath))
+                if (File.Exists(path))
                 {
-                    filePath = filePath.TrimStart('.', '/', '\\');
-
-                    // Combine the project root with the relative path.
-                    filePath = Path.Combine(projectRoot, filePath);
-                }
-
-                if (File.Exists(filePath))
-                {
-                    string fileContents = File.ReadAllText(filePath);
+                    string fileContents = File.ReadAllText(path);
                     filesContents.Add(fileContents);
                 } else
                 {
-                    Console.WriteLine($"File not found: {filePath}");
+                    Console.WriteLine($"File not found: {path}");
                 }
             }
 
@@ -274,8 +254,8 @@ namespace ChatPOC.Chatbot
 
         private string GetDocumentationContext(string userInput)
         {
-            //string query = ExtractQuery(userInput);
-            List<string> paths = RunQuery(userInput);
+            string query = ExtractQuery(userInput);
+            List<string> paths = RunQuery(query);
             string context = FetchContext(paths);
 
             return context;
