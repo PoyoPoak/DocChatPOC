@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using OpenAI.Chat;
 
@@ -11,22 +12,38 @@ namespace ChatPOC.Chatbot
     {
         private readonly ChatClient _client;
         private readonly List<ChatMessage> _messages;
-        private string apiKey = Environment.GetEnvironmentVariable("OPENAI_TOKEN");
+        private string _apiKey = Environment.GetEnvironmentVariable("OPENAI_TOKEN");
 
+        private static readonly ChatTool getDocumentationContextTool = ChatTool.CreateFunctionTool(
+            functionName: "GetDocumentationContext",
+            functionDescription: "Retrieve documentation context based on the developer's query.",
+            functionParameters: BinaryData.FromBytes("""
+                {
+                    "type": "object",
+                    "properties": {
+                        "userInput": {
+                            "type": "string",
+                            "description": "The developer's query."
+                        }
+                    },
+                    "required": [ "userInput" ]
+                }
+                """u8.ToArray())
+        );
         public Chatbot()
         {
-            if (string.IsNullOrEmpty(apiKey))
+            if (string.IsNullOrEmpty(_apiKey))
             {
                 throw new InvalidOperationException("Error: Missing OPENAI_TOKEN environment variable.");
             }
 
             // Initialize the chat client using the gpt-4o model.
-            _client = new ChatClient(model: "gpt-4o", apiKey: apiKey);
+            _client = new ChatClient(model: "gpt-4o", apiKey: _apiKey);
 
             // Start the conversation with a system prompt.
             _messages = new List<ChatMessage>
             {
-                new SystemChatMessage("You are a coding assistant to a developer at Open Dental. You will answer questions the developer may have about the API. Only answer with information based on the documentation you have access to.")
+                new SystemChatMessage("You are a coding assistant to a developer at Open Dental. You will answer questions the developer may have about the API. Only answer with information based on the documentation you have access to. Your responses will be output in a console so be sure to format your responses for easy reading. Your responses shouldn't be long paragraphs. Keep it conscise and technical. For any bullet points or list, add a newline character before it. The console does not support markdown.")
             };
         }
 
@@ -49,24 +66,94 @@ namespace ChatPOC.Chatbot
 
                 // Add the user input to the conversation history.
                 _messages.Add(new UserChatMessage(userInput));
-                ChatCompletion completion = _client.CompleteChat(_messages);
 
-                if (completion != null && completion.Content.Count > 0)
+                var options = new ChatCompletionOptions()
                 {
-                    string assistantReply = completion.Content[0].Text;
+                    Tools = { getDocumentationContextTool }
+                };
 
-                    Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine("Assistant:");
-                    Console.ResetColor();
+                bool requiresAction;
+                do
+                {
+                    requiresAction = false;
+                    ChatCompletion completion = _client.CompleteChat(_messages, options);
 
-                    // Print formatted output with color
-                    PrintFormatted(assistantReply);
+                    switch (completion.FinishReason)
+                    {
+                        // When the chat is finished
+                        case ChatFinishReason.Stop:
+                        {
+                            // Add the assistant message to the conversation history.
+                            string assistantReply = completion.Content[0].Text;
+                            _messages.Add(new AssistantChatMessage(assistantReply));
 
-                    // Append the assistant's reply to the conversation history.
-                    _messages.Add(new AssistantChatMessage(assistantReply));
-                }
+                            Console.ForegroundColor = ConsoleColor.Yellow;
+                            Console.WriteLine("Assistant:");
+                            Console.ResetColor();
+
+                            // Reply
+                            //ListNewLine(assistantReply);
+                            PrintFormatted(assistantReply);
+
+                            break;
+                        }
+
+                        // When the chat requires funct calls
+                        case ChatFinishReason.ToolCalls:
+                            {
+                                // Add the assistant's message (which includes tool calls) to the chat history
+                                _messages.Add(new AssistantChatMessage(completion));
+
+                                // Run functions requested by the bot
+                                foreach (ChatToolCall toolCall in completion.ToolCalls)
+                                {
+                                    switch (toolCall.FunctionName)
+                                    {
+                                        case "GetDocumentationContext":
+                                            {
+                                                // Parse the tool's function arguments.
+                                                using JsonDocument argumentsJson = JsonDocument.Parse(toolCall.FunctionArguments);
+                                                if (!argumentsJson.RootElement.TryGetProperty("userInput", out JsonElement userInputElement))
+                                                {
+                                                    throw new ArgumentNullException("userInput", "The userInput argument is required.");
+                                                }
+                                                string queryInput = userInputElement.GetString();
+
+                                                // Call the function to get documentation context.
+                                                string toolResult = GetDocumentationContext(queryInput);
+                                                _messages.Add(new ToolChatMessage(toolCall.Id, toolResult));
+                                                Debug.WriteLine($"Tool '{toolCall.FunctionName}' retrieved '{toolResult}'");
+                                                break;
+                                            }
+                                        default:
+                                            {
+                                                throw new NotImplementedException($"Tool function '{toolCall.FunctionName}' is not implemented.");
+                                            }
+                                    }
+                                }
+                                requiresAction = true;
+                                break;
+                            }
+                        default:
+                            {
+                                throw new NotImplementedException($"Finish reason '{completion.FinishReason}' is not implemented.");
+                            }
+                    }
+                } while (requiresAction);
             }
         }
+        //private static string ListNewLine(string input)
+        //{
+        //    if (string.IsNullOrEmpty(input))
+        //        return input;
+
+        //    // This pattern looks for any character that is not a newline immediately
+        //    // followed by optional whitespace and a list marker (bullet: -, *, + or numbered list: digit+.)
+        //    string pattern = @"([^\n])(\s*(?:[-*+]|(?:\d+\.))\s+)";
+
+        //    // Replace with the first group, then a newline, then the second group.
+        //    return Regex.Replace(input, pattern, "$1\n$2");
+        //}
 
         private void PrintFormatted(string text)
         {
@@ -90,33 +177,41 @@ namespace ChatPOC.Chatbot
             }
         }
 
-        private string ExtractQuery(string userInput)
-        {
-            // Send query through chatbot again as a reasoning agent to extract technical queries
-            ChatClient extractor = new ChatClient(model: "gpt-4o", apiKey: apiKey);
-            List<ChatMessage> messages = new List<ChatMessage>
-            {
-                new SystemChatMessage("You are a reasoning agent that will extract technical queries from the user input. Only output a single query. This query will be used to query an information retrieval system. Keep it condensed and accurate to the input. For example if the user asks: How do I make an API call to get all the patient's benefits from their insurance plan? A proper extracted query would be: get patient benefits from insurance"),
-                new UserChatMessage(userInput)
-            };
+        //private string ExtractQuery(string userInput)
+        //{
+        //    // Send query through chatbot again as a reasoning agent to extract technical queries
+        //    ChatClient extractor = new ChatClient(model: "gpt-4o", apiKey: _apiKey);
+        //    List<ChatMessage> messages = new List<ChatMessage>
+        //    {
+        //        new SystemChatMessage("You are a reasoning agent that will extract technical queries from the user input. Only output a single query. This query will be used to query an information retrieval system. Keep it condensed and accurate to the input. For example if the user asks: How do I make an API call to get all the patient's benefits from their insurance plan? A proper extracted query would be: get patient benefits from insurance"),
+        //        new UserChatMessage(userInput)
+        //    };
 
-            ChatCompletion extractedQuery = extractor.CompleteChat();
-            string query = extractedQuery.Content[0].Text;
+        //    ChatCompletion extractedQuery = extractor.CompleteChat(messages);
+        //    string query = extractedQuery.Content[0].Text.Trim();
 
-            return query;
-        }
+        //    return query;
+        //}
 
         private List<string> RunQuery(string query)
         {
+            string exeDirectory = AppContext.BaseDirectory;
+            string workingDirectory = Path.GetFullPath(Path.Combine(exeDirectory, "..", "..", "..", "DocumentProcessing"));
 
-            // Run python with command "python3 query.py <query>" which will return 3 lines of output, each a path to a file
+            if (!Directory.Exists(workingDirectory))
+            {
+                Console.WriteLine("Working directory does not exist: " + workingDirectory);
+            }
+
             ProcessStartInfo start = new ProcessStartInfo
             {
-                FileName = "python3",
-                Arguments = $"query.py {query}",
+                FileName = "python",
+                Arguments = $"query.py \"{query}\"",
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
-                CreateNoWindow = true
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+                WorkingDirectory = workingDirectory
             };
 
             List<string> paths = new List<string>();
@@ -144,20 +239,45 @@ namespace ChatPOC.Chatbot
 
         private static string FetchContext(List<String> paths)
         {
-            List<String> filesContents = new List<String>();
+            List<string> filesContents = new List<string>();
 
-            // For each path, navigate through directory and fetch file contents from directory
-            foreach (string path in paths)
+            string projectRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", ".."));
+
+            foreach (string originalPath in paths)
             {
-                if (File.Exists(path))
+                // Assume the returned path is relative if it isn't rooted.
+                string filePath = originalPath;
+
+                if (!Path.IsPathRooted(filePath))
                 {
-                    string fileContents = File.ReadAllText(path);
+                    filePath = filePath.TrimStart('.', '/', '\\');
+
+                    // Combine the project root with the relative path.
+                    filePath = Path.Combine(projectRoot, filePath);
+                }
+
+                if (File.Exists(filePath))
+                {
+                    string fileContents = File.ReadAllText(filePath);
                     filesContents.Add(fileContents);
+                } else
+                {
+                    Console.WriteLine($"File not found: {filePath}");
                 }
             }
 
-            // Combine all file contents into a single string to return
+            // Combine all file contents into a single string.
             string context = string.Join("\n", filesContents);
+            
+            return context;
+        }
+
+        private string GetDocumentationContext(string userInput)
+        {
+            //string query = ExtractQuery(userInput);
+            List<string> paths = RunQuery(userInput);
+            string context = FetchContext(paths);
+
             return context;
         }
     }
