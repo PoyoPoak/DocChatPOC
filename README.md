@@ -151,4 +151,4 @@ For the purpose of skill demonstration, this POC is not of an optimal implementa
 - Word2vec vectorization is available in C# with the Microsoft.Spark.ML.Feature NuGet package available to download. Due to lack of time, I've decided to opt for the Python implementation.
 - Considering information may be sensitive in other use cases, implementing a smaller locally running LLM would be ideal so information is not sent over the internet.
 - Some scripts such as processor.py, crawler.py, and Chatbot.cs can be broken up into multiple files for organization and file structure convention.
-- More that I'm probably too tired to recall... of course this is just a POC for demonstration.
+- Much room for improvement in code efficiency as to redundant loops and etc, of course this was thrown together in short time.
