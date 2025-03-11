@@ -62,7 +62,7 @@ def process_text(idx_txt):
 
 def model_setup(processed_documents):
     model = Word2Vec(sentences=processed_documents, vector_size=500, window=6, min_count=0, workers=8)
-    model.train(processed_documents, total_examples=model.corpus_count, total_words=model.corpus_total_words, epochs=100)
+    model.train(processed_documents, total_examples=model.corpus_count, total_words=model.corpus_total_words, epochs=200)
     model.save(config["MODEL_PATH"])
     return model
 
@@ -70,11 +70,11 @@ def model_setup(processed_documents):
 def vectorize_documents(processed_documents, model):
     doc_vecs = []
 
-    # For every review in the processed_reviews list vectorize the words 
+    # For every document in the processed_documents list
     for document in processed_documents:
         word_vecs = []
     
-        # For every word in the review, vectorize it and append it to the word_vecs list
+        # For every word in the document, vectorize it and append it to the word_vecs list
         for word in document:
             try:
                 vec = model.wv[word]
@@ -90,7 +90,7 @@ def vectorize_documents(processed_documents, model):
         
         # Append the document vector to the doc_vecs list    
         doc_vecs.append(document_avg)
-        
+
     print("Document vectors generated...")        
     return doc_vecs
 
@@ -105,10 +105,10 @@ def append_vec(csv_data, idx_txt, doc_vecs):
     vec_strs = [json.dumps(vec.tolist()) for vec in doc_vecs]
     vec_strs = [vec.replace(",", ";") for vec in vec_strs]
     
-    # Find the correct row in the csv_data and append the vector string
+    # Append the vector representations to the CSV data
     for idx, vec_str in zip(idx_txt, vec_strs):
         csv_data[idx].append(vec_str)
-        
+
         
 def save_csv(data):
     with open(f"{config['DOWNLOADS_PATH']}/full_data.csv", "w", encoding="utf-8") as f:
