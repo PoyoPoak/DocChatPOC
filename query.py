@@ -103,11 +103,11 @@ index = MatrixSimilarity(docs, num_features=model.vector_size)
 
 # Compute the similarity scores between the query and all documents, get top 3
 similarity_scores = index[query_vec]
-top3_ids = np.array(similarity_scores).argsort()[-3:][::-1]
-top3_paths = [paths[idx] for idx in top3_ids]
+top5_ids = np.array(similarity_scores).argsort()[-5:][::-1]
+top5_paths = [paths[idx] for idx in top5_ids]
 
 # print("Top 3 matching document paths:")
-for path in top3_paths:
+for path in top5_paths:
     print(path)
 
 cursor.close()
