@@ -48,6 +48,9 @@ def main():
     )
     cursor = connection.cursor()
     
+    # Reset the table if needed
+    reset_table(cursor)
+
     # Create the table if it doesn't already exist
     create_table(cursor)
     
