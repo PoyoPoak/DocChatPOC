@@ -122,7 +122,7 @@ namespace ChatPOC.Chatbot
                                                 // Call the function to get documentation context.
                                                 string toolResult = GetDocumentationContext(queryInput);
                                                 _messages.Add(new ToolChatMessage(toolCall.Id, toolResult));
-                                                Debug.WriteLine($"Tool '{toolCall.FunctionName}' retrieved '{toolResult}'");
+                                                //Debug.WriteLine($"Tool '{toolCall.FunctionName}' retrieved '{toolResult}'");
                                                 break;
                                             }
                                         default:
@@ -240,9 +240,10 @@ namespace ChatPOC.Chatbot
                 {
                     string fileContents = File.ReadAllText(path);
                     filesContents.Add(fileContents);
+                    Debug.WriteLine($"File found: {path}");
                 } else
                 {
-                    Console.WriteLine($"File not found: {path}");
+                    Debug.WriteLine($"File not found: {path}");
                 }
             }
 
